@@ -9,6 +9,19 @@ export interface ChatMsg {
 }
 
 type Tab = 'chat' | 'tasks' | 'settings' | 'diary' | 'pomodoro' | 'activity'
+export type Emotion =
+  | 'neutral'
+  | 'happy'
+  | 'encourage'
+  | 'sad'
+  | 'sleepy'
+  | 'shy'
+  | 'excited'
+  | 'thinking'
+  | 'love'
+  | 'smug'
+  | 'cry'
+  | 'surprised'
 
 interface AppState {
   expanded: boolean
@@ -22,6 +35,7 @@ interface AppState {
   apiKey: string
   model: string
   idleAway: boolean
+  emotion: Emotion
 
   setExpanded: (v: boolean) => void
   setTab: (t: Tab) => void
@@ -37,11 +51,12 @@ interface AppState {
   setApiKey: (k: string) => void
   setModel: (m: string) => void
   setIdleAway: (v: boolean) => void
+  setEmotion: (e: Emotion, holdMs?: number) => void
 }
 
 let msgId = 1
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   expanded: false,
   tab: 'chat',
   messages: [],
@@ -53,6 +68,7 @@ export const useStore = create<AppState>((set) => ({
   apiKey: '',
   model: 'qwen-turbo',
   idleAway: false,
+  emotion: 'neutral',
 
   setExpanded: (v) => set({ expanded: v }),
   setTab: (t) => set({ tab: t }),
@@ -88,12 +104,39 @@ export const useStore = create<AppState>((set) => ({
       if (last && last.role === 'assistant') {
         msgs[msgs.length - 1] = { ...last, streaming: false }
       }
-      return { messages: msgs, streaming: false }
+      // 思考结束回退情绪
+      return { messages: msgs, streaming: false, emotion: st.idleAway ? 'sleepy' : 'neutral' }
     }),
 
   setTasks: (t) => set({ tasks: t }),
   setPersonaId: (id) => set({ personaId: id }),
   setApiKey: (k) => set({ apiKey: k }),
   setModel: (m) => set({ model: m }),
-  setIdleAway: (v) => set({ idleAway: v })
+  setIdleAway: (v) => {
+    set({
+      idleAway: v,
+      emotion: v
+        ? 'sleepy'
+        : ['sleepy', 'cry'].includes(get().emotion)
+          ? 'neutral'
+          : get().emotion
+    })
+  },
+
+  setEmotion: (e, holdMs) => {
+    const prev = get().emotion
+    set({ emotion: e })
+    if (holdMs && holdMs > 0) {
+      // holdMs 之后回退到 neutral；但若期间用户再次 setEmotion 则忽略本次回退
+      // (用非严格比对: 如果当前仍等于我们设置的 e 才回退)
+      setTimeout(() => {
+        if (get().emotion === e) {
+          const fallBack: Emotion = get().idleAway ? 'sleepy' : 'neutral'
+          set({ emotion: fallBack })
+        }
+      }, holdMs)
+      // 避免 prev 未使用的 TS 警告
+      void prev
+    }
+  }
 }))

@@ -39,170 +39,97 @@ select {
 
 /* ---------- 根容器 ---------- */
 .root {
+  position: relative; /* resize-handle 的绝对定位锚点 */
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding: 0;
+  overflow: hidden;
 }
 
+/* 舞台区: 折叠态占满剩余空间(搭子随窗口缩放), 展开态固定高度放人物 */
 .stage {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 180px;
   display: flex;
   align-items: flex-end;
-  justify-content: flex-end;
-  width: 100%;
-  height: 240px;
-  padding-bottom: 4px;
+  justify-content: center;
+}
+.root[data-expanded='true'] .stage {
+  flex: 0 0 240px;
 }
 
-/* ---------- 搭子形象(纯 CSS) ---------- */
+/* ---------- 搭子形象(基于 PNG 表情帧) ---------- */
 .companion {
   position: relative;
-  width: 150px;
-  height: 200px;
+  width: 100%;
+  height: 100%;
   cursor: pointer;
-  -webkit-app-region: drag;
-  animation: bob 3s ease-in-out infinite;
+  -webkit-app-region: no-drag; /* 显式声明为可点击区域, 避免父级 drag 泄漏 */
   transform-origin: bottom center;
+  animation: bob 3.2s ease-in-out infinite;
+  user-select: none;
+}
+.companion.dragging {
+  cursor: grabbing;
+  animation-play-state: paused; /* 拖动时暂停呼吸动画, 让窗口移动更平滑 */
+}
+
+/* 鼓励/开心时更活泼的浮动幅度 */
+.companion.e-encourage {
+  animation-duration: 1.4s;
+  animation-name: bob-happy;
+}
+.companion.e-happy {
+  animation-duration: 2.2s;
+  animation-name: bob-happy;
+}
+/* 委屈时小幅颤抖 */
+.companion.e-sad {
+  animation-duration: 3s;
+  animation-name: bob-sad;
+}
+/* 困倦时缓慢呼吸 */
+.companion.sleeping,
+.companion.e-sleepy {
+  animation-name: sleep;
+  animation-duration: 5.5s;
+  opacity: 0.92;
 }
 
 @keyframes bob {
   0%,
   100% {
-    transform: translateY(0) rotate(-1deg);
+    transform: translateY(0) rotate(-0.6deg);
   }
   50% {
-    transform: translateY(-8px) rotate(1deg);
+    transform: translateY(-8px) rotate(0.6deg);
   }
 }
-
-.char {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 120px;
-  height: 170px;
-}
-
-.hair {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 96px;
-  height: 70px;
-  background: linear-gradient(180deg, #6a4bff, #a87cff);
-  border-radius: 48px 48px 30px 30px;
-  box-shadow: 0 4px 12px rgba(106, 75, 255, 0.5);
-}
-
-.hair::before,
-.hair::after {
-  content: '';
-  position: absolute;
-  top: 30px;
-  width: 30px;
-  height: 60px;
-  background: linear-gradient(180deg, #6a4bff, #a87cff);
-  border-radius: 24px;
-}
-.hair::before {
-  left: -10px;
-  transform: rotate(8deg);
-}
-.hair::after {
-  right: -10px;
-  transform: rotate(-8deg);
-}
-
-.face {
-  position: absolute;
-  top: 22px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 72px;
-  height: 60px;
-  background: #fff3ea;
-  border-radius: 50%;
-  z-index: 2;
-}
-
-.eye {
-  position: absolute;
-  top: 22px;
-  width: 9px;
-  height: 13px;
-  background: #3a2b5c;
-  border-radius: 50%;
-  animation: blink 4s infinite;
-}
-.eye.left {
-  left: 18px;
-}
-.eye.right {
-  right: 18px;
-}
-@keyframes blink {
+@keyframes bob-happy {
   0%,
-  92%,
   100% {
-    transform: scaleY(1);
+    transform: translateY(0) rotate(-2deg);
   }
-  95% {
-    transform: scaleY(0.1);
+  25% {
+    transform: translateY(-10px) rotate(1.5deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(2deg);
+  }
+  75% {
+    transform: translateY(-12px) rotate(-1.5deg);
   }
 }
-
-.mouth {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 14px;
-  height: 7px;
-  border-bottom: 2px solid #c98a9a;
-  border-radius: 0 0 10px 10px;
-}
-
-.blush {
-  position: absolute;
-  top: 36px;
-  width: 10px;
-  height: 6px;
-  background: rgba(255, 154, 213, 0.6);
-  border-radius: 50%;
-}
-.blush.left {
-  left: 10px;
-}
-.blush.right {
-  right: 10px;
-}
-
-.body {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90px;
-  height: 90px;
-  background: linear-gradient(180deg, #b39bff, #8a6bff);
-  border-radius: 40px 40px 30px 30px;
-}
-
-/* 睡觉状态 */
-.companion.sleeping {
-  animation: sleep 5s ease-in-out infinite;
-  opacity: 0.85;
-}
-.companion.sleeping .eye {
-  height: 2px;
-  border-radius: 2px;
-  animation: none;
+@keyframes bob-sad {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(-3px) rotate(-0.3deg);
+  }
 }
 @keyframes sleep {
   0%,
@@ -210,27 +137,116 @@ select {
     transform: translateY(0) rotate(0);
   }
   50% {
-    transform: translateY(-3px) rotate(0);
+    transform: translateY(-2px) rotate(0);
+  }
+}
+
+/* 帧容器: 两张叠放做交叉淡入, 尺寸跟随窗口(折叠态搭子随窗口放大/缩小) */
+.companion.img-mode .char-frame {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 420px);
+  height: calc(100% - 16px);
+  max-height: 620px;
+  filter: drop-shadow(0 6px 10px rgba(90, 60, 140, 0.35)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.char-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  pointer-events: none;
+  image-rendering: pixelated; /* 保留像素风锐利度 */
+  image-rendering: crisp-edges;
+}
+.char-img.current {
+  animation: char-in 0.45s cubic-bezier(0.33, 1, 0.68, 1) both;
+  z-index: 2;
+}
+.char-img.prev {
+  animation: char-out 0.45s ease-in both;
+  z-index: 1;
+}
+
+96% { transform: scaleY(0.06); }
+}
+@keyframes char-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes char-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(1.02);
+  }
+}
+
+/* 鼓励时帧左右微摆,强化"加油"动感 */
+.companion.e-encourage .char-img.current {
+  animation: char-in 0.45s cubic-bezier(0.33, 1, 0.68, 1) both,
+    sway 1.3s ease-in-out 0.5s infinite;
+}
+@keyframes sway {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(2deg);
+  }
+}
+
+/* 害羞时脸颊微颤 */
+.companion.e-shy .char-img.current {
+  animation: char-in 0.45s ease both, shiver 2.6s ease-in-out 0.5s infinite;
+}
+@keyframes shiver {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-1px) rotate(-0.5deg);
+  }
+  75% {
+    transform: translateX(1px) rotate(0.5deg);
   }
 }
 
 .zzz {
   position: absolute;
-  top: 0;
-  right: 10px;
-  font-size: 18px;
+  top: 8px;
+  right: 30px;
+  font-size: 20px;
   animation: floatUp 3s ease-in-out infinite;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 @keyframes floatUp {
   0% {
-    transform: translateY(0);
+    transform: translateY(8px);
     opacity: 0;
   }
-  50% {
+  35% {
     opacity: 1;
   }
   100% {
-    transform: translateY(-20px);
+    transform: translateY(-24px);
     opacity: 0;
   }
 }
@@ -249,7 +265,7 @@ select {
   line-height: 1.5;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   animation: pop 0.25s ease-out;
-  z-index: 10;
+  z-index: 30;
 }
 .bubble::after {
   content: '';
@@ -272,24 +288,23 @@ select {
 
 /* ---------- 面板 ---------- */
 .panel {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 200px;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 200px;
   background: var(--bg);
   border-radius: 16px 16px 6px 6px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   overflow: hidden;
+  -webkit-app-region: no-drag; /* 面板整体可点, 防止 frameless window 默认 drag */
 }
 
 .tabs {
   display: flex;
   background: var(--bg-soft);
   padding: 0 4px;
-  -webkit-app-region: drag;
+  -webkit-app-region: drag; /* tabs 栏本身可以拖动整个窗口 */
 }
 .tabs button {
   flex: 1;
@@ -298,7 +313,8 @@ select {
   padding: 8px 0;
   font-size: 14px;
   border-bottom: 2px solid transparent;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: no-drag; /* 所有 tab 按钮显式 no-drag, 不要被父级 drag 吞 */
+  cursor: pointer;
 }
 .tabs button.active {
   color: var(--text);
@@ -308,12 +324,46 @@ select {
   flex: 0 0 28px;
   color: var(--muted);
   font-size: 16px;
+  -webkit-app-region: no-drag; /* × 按钮必须 no-drag, 单独声明确保优先级 */
 }
 
 .panel-body {
   flex: 1;
   overflow: auto;
   padding: 10px;
+  -webkit-app-region: no-drag; /* body 区域也显式 no-drag */
+}
+
+/* 自定义窗口 resize 手柄(右下角, 折叠/展开态都可调节大小)
+   平时隐藏(不拦截鼠标), 鼠标进入窗口才显示, 避免与"拖搭子移动窗口"互相误触 */
+.resize-handle {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 30px;
+  height: 30px;
+  cursor: nwse-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--muted);
+  background: rgba(56, 48, 78, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+  user-select: none;
+  z-index: 20;
+  transition: opacity 0.15s ease;
+}
+.root:hover .resize-handle {
+  opacity: 0.6;
+  pointer-events: auto;
+}
+.resize-handle:hover {
+  opacity: 1;
 }
 
 /* ---------- 聊天 ---------- */
@@ -710,6 +760,241 @@ select {
   font-size: 13px;
   color: var(--text);
 }
+
+/* ---------- 每日网站占比环形图 ---------- */
+.site-donut {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.donut-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.donut-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+.donut-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.donut-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.donut-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.donut-date {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 88px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.donut-body {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.donut-svg {
+  width: 180px;
+  height: 180px;
+  flex: 0 0 auto;
+}
+.donut-center-num {
+  font-size: 30px;
+  font-weight: 700;
+  fill: var(--text);
+}
+.donut-center-lbl {
+  font-size: 11px;
+  fill: var(--muted);
+}
+.donut-legend {
+  flex: 1 1 150px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.donut-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.donut-row .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.dn-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.35;
+}
+.dn-name {
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dn-sub {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dn-val {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.donut-row {
+  cursor: default;
+  border-radius: 6px;
+  padding: 2px 4px;
+  margin: 0 -4px;
+}
+.donut-row:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.donut-row.selected {
+  background: rgba(158, 172, 234, 0.16);
+}
+
+/* 网站网页明细 */
+.donut-detail {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+.dd-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.dd-title {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.dd-list {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dd-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.35;
+}
+.dd-name {
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dd-url {
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dd-val {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 近 7 天网站时长趋势 ---------- */
+.site-trend {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.trend-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 8px;
+}
+.tl-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-item .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+/* ---------- 24 小时活动时间线 ---------- */
+.timeline-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.timeline-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.timeline-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.ts-item b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
 .act-setting {
   display: flex;
   flex-direction: column;
@@ -873,4 +1158,162 @@ select {
   color: var(--text);
   font-variant-numeric: tabular-nums;
   flex: 0 0 auto;
+}
+
+/* ---------- 里程碑卡片 + 快照时间线 (学习监控增强) ---------- */
+.milestone-card {
+  background: linear-gradient(135deg, rgba(126, 226, 168, 0.1), rgba(168, 124, 255, 0.12));
+  border: 1px solid rgba(168, 124, 255, 0.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.ms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+.ms-label {
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.ms-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ms-value.good {
+  color: var(--ok);
+}
+.ms-unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 3px;
+}
+.ms-warn {
+  color: #ff9a9a;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.ms-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  margin-bottom: 10px;
+}
+.ms-bar .bar {
+  transition: width 0.25s;
+}
+.ms-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.ms-footer .bridge-on {
+  color: var(--ok);
+}
+.ms-footer .bridge-off {
+  color: #b6acd6;
+  opacity: 0.7;
+}
+
+/* 分类标签 */
+.cat-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+  line-height: 1.6;
+}
+.top-name .cat-tag {
+  font-size: 10px;
+  margin-left: 6px;
+}
+
+/* 快照时间线 */
+.snap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.snap-item {
+  background: var(--bg-soft);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  border-left: 3px solid transparent;
+}
+.snap-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.snap-ico {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  font-size: 13px;
+}
+.snap-meta {
+  flex: 1;
+  min-width: 0;
+}
+.snap-title {
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.snap-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.snap-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.snap-body {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  margin-left: 34px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+50% { transform: scaleY(0.82); }
+}25% { transform: translateY(3px) rotate(-1.2deg) scaleY(0.96); }
+  50% { transform: translateY(0) rotate(0deg) scaleY(1); }
+  75% { transform: translateY(3px) rotate(1.2deg) scaleY(0.96); }
+}50% { transform: translateY(2px) scaleY(0.97); }
 }

@@ -5,6 +5,12 @@ const api = {
   setIgnoreMouse: (ignore: boolean) => ipcRenderer.send('window:set-ignore-mouse', ignore),
   togglePanel: (expanded: boolean) => ipcRenderer.send('window:toggle-panel', expanded),
   hide: () => ipcRenderer.send('window:hide'),
+  moveWindow: (dx: number, dy: number) => ipcRenderer.send('window:move', dx, dy),
+  minimize: () => ipcRenderer.send('window:minimize'),
+  resizeWindow: (dw: number, dh: number) => ipcRenderer.send('window:resize', dw, dh),
+
+  // 渲染端日志(转发到主进程终端, 排查用)
+  log: (msg: string) => ipcRenderer.send('log', msg),
 
   // 设置
   getApiKey: () => ipcRenderer.invoke('settings:get-api-key'),
@@ -71,12 +77,35 @@ const api = {
   activitySummaryByProcess: (date?: string) => ipcRenderer.invoke('activity:summary-by-process', date),
   activityTotal: (date?: string) => ipcRenderer.invoke('activity:total', date),
   activityCategory: (date?: string) => ipcRenderer.invoke('activity:category', date),
+  activityTimeline: (date?: string) => ipcRenderer.invoke('activity:timeline', date),
+
+  // 浏览器网页时长(插件上报)
+  webByDay: (date?: string) => ipcRenderer.invoke('web:by-day', date),
+  webByCategory: (date?: string) => ipcRenderer.invoke('web:by-category', date),
+  webTotal: (date?: string) => ipcRenderer.invoke('web:total', date),
+  webDetail: (date: string, domain: string) => ipcRenderer.invoke('web:detail', date, domain),
+  webTrend: (days?: number) => ipcRenderer.invoke('web:trend', days),
+
+  // 学习内容快照
+  snapshotsRecent: (limit?: number, opts?: any) => ipcRenderer.invoke('snapshots:recent', limit, opts),
+  snapshotsStats: (date?: string) => ipcRenderer.invoke('snapshots:stats', date),
+
+  // 里程碑 + 桥接
+  milestoneStats: () => ipcRenderer.invoke('milestone:stats'),
+  milestoneResetToday: () => ipcRenderer.invoke('milestone:reset-today'),
+  bridgeInfo: () => ipcRenderer.invoke('bridge:info'),
 
   // 事件订阅
   onGreeting: (cb: (text: string) => void) => {
     const h = (_e: unknown, text: string) => cb(text)
     ipcRenderer.on('greeting', h)
     return () => ipcRenderer.off('greeting', h)
+  },
+  // 天气降水提醒(搭子冒泡)
+  onWeatherAlert: (cb: (text: string) => void) => {
+    const h = (_e: unknown, text: string) => cb(text)
+    ipcRenderer.on('weather-alert', h)
+    return () => ipcRenderer.off('weather-alert', h)
   },
   onIdleState: (cb: (s: { idleSeconds: number; isAway: boolean }) => void) => {
     const h = (_e: unknown, s: { idleSeconds: number; isAway: boolean }) => cb(s)
@@ -93,9 +122,54 @@ const api = {
     const h = (_e: unknown, r: { text: string; trigger: 'patrol' | 'return' }) => cb(r)
     ipcRenderer.on('patrol:ask', h)
     return () => ipcRenderer.off('patrol:ask', h)
+  },
+  // 里程碑达成: 气泡显示鼓励
+  onMilestone: (
+    cb: (r: {
+      type: 'milestone' | 'encourage' | 'remind'
+      level: 'info' | 'good' | 'great' | 'warn'
+      minutes: number
+      title: string
+      message: string
+      payload?: any
+    }) => void
+  ) => {
+    const h = (_e: unknown, r: any) => cb(r)
+    ipcRenderer.on('milestone:hit', h)
+    return () => ipcRenderer.off('milestone:hit', h)
   }
 }
 
 export type CompanionApi = typeof api
 
-contextBridge.exposeInMainWorld('companion', api)
+contextBridge.exposeInMainWorld('companion', api);
+
+// #region debug-point H5:preload-expose
+;(() => {
+  try {
+    const p = 'http://127.0.0.1:7777/event'
+    const body = JSON.stringify({
+      sessionId: 'companion-ui-bug',
+      runId: 'pre',
+      hypothesisId: 'H5',
+      location: 'src/preload/index.ts:exposeInMainWorld',
+      msg: '[DEBUG] Preload window.companion exposed OK',
+      data: {
+        // 检查关键 API 是否挂上去了
+        setIgnoreMouse: typeof (api as any).setIgnoreMouse,
+        togglePanel: typeof (api as any).togglePanel,
+        hide: typeof (api as any).hide,
+        sendChat: typeof (api as any).sendChat,
+        onMilestone: typeof (api as any).onMilestone,
+        apiKeysCount: Object.keys(api).length
+      },
+      ts: Date.now()
+    })
+    const xhr = new (globalThis as any).XMLHttpRequest()
+    xhr.open('POST', p, true)
+    xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.onreadystatechange = () => { /* fire and forget */ }
+    try { xhr.send(body) } catch { /* ignore */ }
+  } catch { /* ignore */ }
+})()
+// #endregion

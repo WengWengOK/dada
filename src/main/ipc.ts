@@ -1,5 +1,10 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { getMainWindow, setIgnoreMouseEvents, togglePanel } from './window'
+import { getMainWindow, setIgnoreMouseEvents, togglePanel, moveWindow, minimizeWindow, resizeWindow } from './window'
+
+// 渲染端日志转发到主进程终端(排查渲染端行为用)
+ipcMain.on('log', (_e, msg: unknown) => {
+  console.log('[renderer]', msg)
+})
 import {
   listTasks,
   addTask,
@@ -41,12 +46,32 @@ import {
   usageByCategory,
   type UsageAggregate
 } from './activity/watcher'
+import {
+  webUsageByDay,
+  webUsageByCategory,
+  webUsageTotal,
+  recentSnapshots,
+  snapshotStatsByCategory,
+  webUsageDetail,
+  webUsageTrend,
+  activityTimeline,
+  type WebUsageAggregate,
+  type SnapshotRow
+} from './db'
+import {
+  getCombinedStats,
+  resetMilestonesToday
+} from './milestone'
+import { getBridgePort, isBridgeEnabled } from './bridge-server'
 
 export function registerIpc(): void {
   // ---------- 窗口 ----------
   ipcMain.on('window:set-ignore-mouse', (_e, ignore: boolean) => setIgnoreMouseEvents(ignore))
   ipcMain.on('window:toggle-panel', (_e, expanded: boolean) => togglePanel(expanded))
   ipcMain.on('window:hide', () => getMainWindow()?.hide())
+  ipcMain.on('window:move', (_e, dx: number, dy: number) => moveWindow(dx, dy))
+  ipcMain.on('window:minimize', () => minimizeWindow())
+  ipcMain.on('window:resize', (_e, dw: number, dh: number) => resizeWindow(dw, dh))
 
   // ---------- 设置 ----------
   ipcMain.handle('settings:get-api-key', () => getApiKey())
@@ -125,6 +150,27 @@ export function registerIpc(): void {
   )
   ipcMain.handle('activity:total', (_e, date?: string) => usageTotal(date))
   ipcMain.handle('activity:category', (_e, date?: string) => usageByCategory(date))
+  ipcMain.handle('activity:timeline', (_e, date?: string) => activityTimeline(date))
+
+  // ---------- 浏览器网页时长 + 快照 + 里程碑 ----------
+  ipcMain.handle('web:by-day', (_e, date?: string) => webUsageByDay(date) as WebUsageAggregate[])
+  ipcMain.handle('web:by-category', (_e, date?: string) => webUsageByCategory(date))
+  ipcMain.handle('web:total', (_e, date?: string) => webUsageTotal(date))
+  ipcMain.handle('web:detail', (_e, date: string, domain: string) =>
+    webUsageDetail(date, domain)
+  )
+  ipcMain.handle('web:trend', (_e, days = 7) => webUsageTrend(days))
+  ipcMain.handle('snapshots:recent', (_e, limit = 20, opts?: any) =>
+    recentSnapshots(limit, opts as any) as SnapshotRow[]
+  )
+  ipcMain.handle('snapshots:stats', (_e, date?: string) => snapshotStatsByCategory(date))
+  ipcMain.handle('milestone:stats', () => getCombinedStats())
+  ipcMain.handle('milestone:reset-today', () => resetMilestonesToday())
+  ipcMain.handle('bridge:info', () => ({
+    enabled: isBridgeEnabled(),
+    port: getBridgePort(),
+    url: `http://127.0.0.1:${getBridgePort()}`
+  }))
 }
 
 async function generateDailyReport(): Promise<{ date: string; content: string }> {

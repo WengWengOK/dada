@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学习时长追踪</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 380px;
+      max-height: 640px;
+      overflow-y: auto;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      font-size: 14px;
+    }
+
+    body::-webkit-scrollbar { width: 6px; }
+    body::-webkit-scrollbar-track { background: transparent; }
+    body::-webkit-scrollbar-thumb { background: rgba(168,124,255,0.3); border-radius: 3px; }
+
+    /* ========== 头部 ========== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px 12px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #241b3a 100%);
+      border-bottom: 1px solid rgba(168,124,255,0.15);
+    }
+    .header h1 { font-size: 16px; font-weight: 600; color: #a87cff; }
+    .tracking-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #7ee2a8;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #7ee2a8;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    .status-dot.idle { background: #b6acd6; animation: none; opacity: 0.5; }
+
+    /* ========== 桥接状态 ========== */
+    .bridge-card {
+      margin: 12px 14px 0;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(168,124,255,0.15);
+      border-radius: 12px;
+    }
+    .bridge-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .bridge-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .bridge-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #b6acd6;
+    }
+    .bridge-dot.on { background: #7ee2a8; box-shadow: 0 0 6px #7ee2a8; }
+    .bridge-url {
+      font-size: 11px;
+      color: #888;
+      font-family: monospace;
+      background: rgba(0,0,0,0.2);
+      padding: 3px 6px;
+      border-radius: 4px;
+    }
+    .bridge-btns { display: flex; gap: 6px; }
+    .mini-btn {
+      padding: 5px 10px;
+      font-size: 11px;
+      border: 1px solid rgba(168,124,255,0.3);
+      background: rgba(168,124,255,0.1);
+      color: #c9b8ff;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .mini-btn.primary { background: rgba(126,226,168,0.15); color: #7ee2a8; border-color: rgba(126,226,168,0.3); }
+    .mini-btn:hover { opacity: 0.8; }
+    .pending-badge {
+      font-size: 10px;
+      color: #888;
+      background: rgba(255,255,255,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ========== 今日学习时长 ========== */
+    .hero-card {
+      margin: 14px;
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(126,226,168,0.12) 0%, rgba(168,124,255,0.12) 100%);
+      border: 1px solid rgba(168,124,255,0.15);
+      border-radius: 16px;
+      text-align: center;
+    }
+    .hero-time {
+      font-size: 36px;
+      font-weight: 300;
+      color: #7ee2a8;
+      margin-bottom: 4px;
+    }
+    .hero-label { font-size: 12px; color: #999; margin-bottom: 6px; }
+    .hero-total { font-size: 11px; color: #666; }
+
+    /* ========== 通用区块 ========== */
+    .section { margin: 0 14px 14px; }
+    .section h3 {
+      font-size: 13px;
+      color: #a87cff;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ========== 分类统计 ========== */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .cat-card {
+      background: rgba(255,255,255,0.04);
+      border-radius: 10px;
+      padding: 10px 4px;
+      text-align: center;
+    }
+    .cat-icon { font-size: 18px; display: block; margin-bottom: 4px; }
+    .cat-time { font-size: 13px; font-weight: 600; display: block; }
+    .cat-name { font-size: 10px; color: #888; }
+    .category-bar {
+      display: flex;
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.05);
+    }
+    .category-bar span { min-width: 2px; transition: width 0.3s; }
+
+    /* ========== 网站列表 ========== */
+    .site-list { display: flex; flex-direction: column; gap: 6px; }
+    .site-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .site-rank {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(168,124,255,0.15);
+      color: #a87cff;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .site-rank.top1 { background: #ffd166; color: #1a1a2e; }
+    .site-rank.top2 { background: #c0c0c0; color: #1a1a2e; }
+    .site-rank.top3 { background: #cd7f32; color: #1a1a2e; }
+    .site-icon { font-size: 16px; flex-shrink: 0; }
+    .site-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .site-duration { color: #999; font-size: 11px; flex-shrink: 0; }
+    .site-bar {
+      width: 100%;
+      height: 3px;
+      border-radius: 2px;
+      margin-top: 4px;
+      background: rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+    .site-bar-fill { height: 100%; border-radius: 2px; }
+
+    /* ========== 历史图表 ========== */
+    .history-chart {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 60px;
+    }
+    .history-bar {
+      flex: 1;
+      border-radius: 3px 3px 0 0;
+      min-height: 4px;
+      transition: height 0.3s;
+    }
+    .history-labels {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .history-labels span {
+      flex: 1;
+      text-align: center;
+      font-size: 10px;
+      color: #666;
+    }
+
+    /* ========== 按钮 ========== */
+    .actions { display: flex; gap: 8px; padding: 0 14px 16px; }
+    .btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-export { background: rgba(168,124,255,0.2); color: #a87cff; }
+    .btn-clear { background: rgba(255,100,100,0.15); color: #ff6b6b; }
+
+    /* ========== 空状态 ========== */
+    .empty {
+      text-align: center;
+      color: #666;
+      padding: 20px;
+      font-size: 12px;
+    }
+
+    /* ========== Toast ========== */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 16px;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📚 学习时长追踪</h1>
+    <div class="tracking-status" id="trackingStatus">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">追踪中</span>
+    </div>
+  </div>
+
+  <!-- 桥接状态 -->
+  <div class="bridge-card">
+    <div class="bridge-row">
+      <div class="bridge-status">
+        <span class="bridge-dot" id="bridgeDot"></span>
+        <span id="bridgeStatusText">桌面搭子:检测中…</span>
+      </div>
+      <span class="pending-badge" id="pendingBadge">待同步 -</span>
+    </div>
+    <div class="bridge-row">
+      <span class="bridge-url" id="bridgeUrl">http://127.0.0.1:8765</span>
+      <div class="bridge-btns">
+        <button class="mini-btn primary" id="btnSync">立即同步</button>
+        <button class="mini-btn" id="btnSnap">📸 快照</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 今日学习时长 -->
+  <div class="hero-card">
+    <div class="hero-time" id="todayStudyTime">0分钟</div>
+    <div class="hero-label">今日学习时长</div>
+    <div class="hero-total" id="todayTotalTime">总使用 0分钟</div>
+  </div>
+
+  <!-- 分类统计 -->
+  <div class="section">
+    <h3>📊 分类统计</h3>
+    <div class="category-grid" id="categoryGrid"></div>
+    <div class="category-bar" id="categoryBar"></div>
+  </div>
+
+  <!-- 学习网站排行 -->
+  <div class="section">
+    <h3>🏆 学习网站排行</h3>
+    <div class="site-list" id="studySiteList">
+      <div class="empty">还没有学习记录，加油！</div>
+    </div>
+  </div>
+
+  <!-- 今日全部网站 -->
+  <div class="section">
+    <h3>📋 今日全部网站</h3>
+    <div class="site-list" id="allSiteList">
+      <div class="empty">暂无记录</div>
+    </div>
+  </div>
+
+  <!-- 近7天趋势 -->
+  <div class="section">
+    <h3>📈 近7天学习趋势</h3>
+    <div class="history-chart" id="historyChart"></div>
+    <div class="history-labels" id="historyLabels"></div>
+  </div>
+
+  <!-- 操作按钮 -->
+  <div class="actions">
+    <button class="btn btn-export" id="btnExport">📤 导出数据</button>
+    <button class="btn btn-clear" id="btnClear">🗑️ 清空数据</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ========== 分类信息（与 background.js 保持一致）==========
+    const CATS = {
+      study:        { name: '学习', icon: '📚', color: '#7ee2a8' },
+      work:         { name: '工作', icon: '💼', color: '#a87cff' },
+      social:       { name: '社交', icon: '💬', color: '#ff9ad5' },
+      entertainment:{ name: '娱乐', icon: '🎮', color: '#ffd166' },
+      other:        { name: '其他', icon: '📌', color: '#b6acd6' }
+    };
+
+    function showToast(msg, ms = 1500) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), ms);
+    }
+
+    // ========== 工具函数 ==========
+    function todayKey() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function formatDuration(ms) {
+      const mins = Math.floor(ms / 60000);
+      if (mins < 1) return '<1分钟';
+      if (mins < 60) return `${mins}分钟`;
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m > 0 ? `${h}小时${m}分` : `${h}小时`;
+    }
+
+    function dateKeyOffset(daysAgo) {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    // ========== 桥接状态刷新 ==========
+    async function refreshBridgeStatus() {
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'bridge:status' });
+        if (!res) return;
+        const dot = document.getElementById('bridgeDot');
+        const txt = document.getElementById('bridgeStatusText');
+        const urlEl = document.getElementById('bridgeUrl');
+        const pending = document.getElementById('pendingBadge');
+        urlEl.textContent = res.bridgeUrl;
+        pending.textContent = `待同步 ${res.pendingUsages}条+${res.pendingSnapshots}张`;
+        if (res.reachable) {
+          dot.classList.add('on');
+          txt.textContent = '桌面搭子已连接 ✅';
+          txt.style.color = '#7ee2a8';
+        } else {
+          dot.classList.remove('on');
+          txt.textContent = '桌面搭子未连接 ❌(启动桌面端)';
+          txt.style.color = '#ff9a9a';
+        }
+      } catch {}
+    }
+
+    // ========== 数据获取 ==========
+    async function getData() {
+      const data = await chrome.storage.local.get(['siteData', 'dailyTotal', 'currentTab']);
+      const key = todayKey();
+      const sites = data.siteData?.[key] ? { ...data.siteData[key] } : {};
+      const totals = data.dailyTotal?.[key] ? { ...data.dailyTotal[key] } : {};
+
+      // 加上当前未保存的实时追踪时间
+      if (data.currentTab) {
+        const liveDuration = Math.min(Date.now() - data.currentTab.startTime, 5 * 60 * 1000);
+        if (liveDuration >= 1000) {
+          if (sites[data.currentTab.domain]) {
+            sites[data.currentTab.domain] = {
+              ...sites[data.currentTab.domain],
+              duration: sites[data.currentTab.domain].duration + liveDuration
+            };
+          } else {
+            sites[data.currentTab.domain] = {
+              domain: data.currentTab.domain,
+              title: data.currentTab.title,
+              category: data.currentTab.category,
+              duration: liveDuration,
+              visits: 1
+            };
+          }
+          totals[data.currentTab.category] = (totals[data.currentTab.category] || 0) + liveDuration;
+        }
+      }
+
+      return { sites, totals, allData: data };
+    }
+
+    // ========== 渲染 ==========
+    async function render() {
+      const { sites, totals, allData } = await getData();
+
+      // 今日学习时长
+      const studyMs = totals.study || 0;
+      document.getElementById('todayStudyTime').textContent = formatDuration(studyMs);
+
+      // 总使用时长
+      const totalMs = Object.values(totals).reduce((a, b) => a + (b || 0), 0);
+      document.getElementById('todayTotalTime').textContent = `总使用 ${formatDuration(totalMs)}`;
+
+      // 分类统计
+      const grid = document.getElementById('categoryGrid');
+      const bar = document.getElementById('categoryBar');
+      grid.innerHTML = '';
+      bar.innerHTML = '';
+
+      Object.entries(CATS).forEach(([key, info]) => {
+        const ms = totals[key] || 0;
+        const card = document.createElement('div');
+        card.className = 'cat-card';
+        card.innerHTML = `
+          <span class="cat-icon">${info.icon}</span>
+          <span class="cat-time" style="color:${info.color}">${formatDuration(ms)}</span>
+          <span class="cat-name">${info.name}</span>
+        `;
+        grid.appendChild(card);
+
+        if (ms > 0) {
+          const seg = document.createElement('span');
+          seg.style.width = (totalMs > 0 ? (ms / totalMs * 100) : 0) + '%';
+          seg.style.background = info.color;
+          bar.appendChild(seg);
+        }
+      });
+
+      // 学习网站排行
+      const studySites = Object.values(sites)
+        .filter(s => s.category === 'study')
+        .sort((a, b) => b.duration - a.duration);
+      const studyList = document.getElementById('studySiteList');
+      if (studySites.length === 0) {
+        studyList.innerHTML = '<div class="empty">还没有学习记录，加油！💪</div>';
+      } else {
+        studyList.innerHTML = '';
+        const maxDuration = studySites[0].duration;
+        studySites.slice(0, 5).forEach((site, i) => {
+          const item = document.createElement('div');
+          item.className = 'site-item';
+          const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+          item.innerHTML = `
+            <span class="site-rank ${rankClass}">${i + 1}</span>
+            <span class="site-icon">${CATS.study.icon}</span>
+            <div style="flex:1;min-width:0">
+              <div class="site-name" title="${site.domain}">${site.title || site.domain}</div>
+              <div class="site-bar"><div class="site-bar-fill" style="width:${(site.duration/maxDuration*100)}%;background:${CATS.study.color}"></div></div>
+            </div>
+            <span class="site-duration">${formatDuration(site.duration)}</span>
+          `;
+          studyList.appendChild(item);
+        });
+      }
+
+      // 今日全部网站
+      const allSites = Object.values(sites).sort((a, b) => b.duration - a.duration);
+      const allList = document.getElementById('allSiteList');
+      if (allSites.length === 0) {
+        allList.innerHTML = '<div class="empty">暂无记录</div>';
+      } else {
+        allList.innerHTML = '';
+        const maxDuration = allSites[0].duration;
+        allSites.slice(0, 10).forEach((site) => {
+          const info = CATS[site.category] || CATS.other;
+          const item = document.createElement('div');
+          item.className = 'site-item';
+          item.innerHTML = `
+            <span class="site-icon">${info.icon}</span>
+            <div style="flex:1;min-width:0">
+              <div class="site-name" title="${site.domain}">${site.title || site.domain}</div>
+              <div class="site-bar"><div class="site-bar-fill" style="width:${(site.duration/maxDuration*100)}%;background:${info.color}"></div></div>
+            </div>
+            <span class="site-duration">${formatDuration(site.duration)}</span>
+          `;
+          allList.appendChild(item);
+        });
+      }
+
+      // 近7天趋势
+      const chart = document.getElementById('historyChart');
+      const labels = document.getElementById('historyLabels');
+      chart.innerHTML = '';
+      labels.innerHTML = '';
+      const dayNames = ['日','一','二','三','四','五','六'];
+      let maxHistMs = 1;
+      const histData = [];
+      for (let i = 6; i >= 0; i--) {
+        const key = dateKeyOffset(i);
+        const ms = allData.dailyTotal?.[key]?.study || 0;
+        histData.push({ ms, day: dayNames[new Date(key).getDay()] });
+        if (ms > maxHistMs) maxHistMs = ms;
+      }
+      histData.forEach(h => {
+        const bar = document.createElement('div');
+        bar.className = 'history-bar';
+        const heightPct = h.ms > 0 ? Math.max(8, (h.ms / maxHistMs * 100)) : 4;
+        bar.style.height = heightPct + '%';
+        bar.style.background = h.ms > 0
+          ? 'linear-gradient(to top, #7ee2a8, #a87cff)'
+          : 'rgba(255,255,255,0.06)';
+        bar.title = formatDuration(h.ms);
+        chart.appendChild(bar);
+
+        const label = document.createElement('span');
+        label.textContent = h.day;
+        labels.appendChild(label);
+      });
+
+      // 追踪状态
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      if (allData.currentTab) {
+        statusDot.classList.remove('idle');
+        const info = CATS[allData.currentTab.category] || CATS.other;
+        statusText.textContent = `${info.icon} ${allData.currentTab.domain}`;
+      } else {
+        statusDot.classList.add('idle');
+        statusText.textContent = '空闲';
+      }
+    }
+
+    // ========== 桥接按钮 ==========
+    document.getElementById('btnSync').addEventListener('click', async () => {
+      const btn = document.getElementById('btnSync');
+      btn.disabled = true;
+      btn.textContent = '同步中…';
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'bridge:sync-now' });
+        if (res?.ok) showToast('✅ 同步成功');
+        else showToast('❌ 同步失败,确认桌面端已启动');
+      } catch (e) {
+        showToast('❌ ' + (e?.message || '失败'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '立即同步';
+        refreshBridgeStatus();
+      }
+    });
+    document.getElementById('btnSnap').addEventListener('click', async () => {
+      try {
+        await chrome.runtime.sendMessage({ type: 'snapshot:now' });
+        showToast('📸 已记录当前页快照');
+      } catch (e) {
+        showToast('❌ 快照失败');
+      }
+    });
+
+    // ========== 导出数据 ==========
+    document.getElementById('btnExport').addEventListener('click', async () => {
+      const data = await chrome.storage.local.get(['siteData', 'dailyTotal']);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `学习时长统计_${todayKey()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ========== 清空数据 ==========
+    document.getElementById('btnClear').addEventListener('click', async () => {
+      if (!confirm('确定要清空所有追踪数据吗？此操作不可恢复！')) return;
+      await chrome.storage.local.remove(['siteData', 'dailyTotal', 'currentTab']);
+      render();
+      showToast('已清空本地数据');
+    });
+
+    // ========== 初始化 ==========
+    render();
+    refreshBridgeStatus();
+    // 每秒刷新数据,每 5 秒刷新桥接状态
+    setInterval(render, 1000);
+    setInterval(refreshBridgeStatus, 5000);
+  </script>
+</body>
+</html>

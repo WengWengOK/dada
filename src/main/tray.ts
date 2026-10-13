@@ -1,5 +1,5 @@
 import { nativeImage, Tray, Menu, app } from 'electron'
-import { getMainWindow, createMainWindow } from './window'
+import { toggleWindow, resetWindowPosition } from './window'
 import { getPersona, setPersona } from './llm/qwen'
 import { PERSONAS, type PersonaId } from './llm/persona'
 import { deflateSync } from 'node:zlib'
@@ -82,7 +82,8 @@ export function createTray(): void {
 
     tray!.setContextMenu(
       Menu.buildFromTemplate([
-        { label: '显示搭子', click: () => showWindow() },
+        { label: '显示搭子', click: () => toggleWindow() },
+        { label: '重置窗口位置', click: () => resetWindowPosition() },
         { type: 'separator' },
         { label: '人格', submenu: personaItems },
         { type: 'separator' },
@@ -92,12 +93,5 @@ export function createTray(): void {
   }
 
   rebuild()
-  tray.on('click', () => showWindow())
-}
-
-function showWindow(): void {
-  let w = getMainWindow()
-  if (!w) w = createMainWindow()
-  if (w.isVisible()) w.hide()
-  else w.show()
+  tray.on('click', () => toggleWindow())
 }

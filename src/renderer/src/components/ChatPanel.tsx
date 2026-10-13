@@ -43,6 +43,8 @@ export function ChatPanel() {
     }
     pushUser(text)
     startAssistant()
+    // 搭子"思考中"表情
+    useStore.getState().setEmotion('thinking')
     window.companion.sendChat(text)
     setInput('')
   }

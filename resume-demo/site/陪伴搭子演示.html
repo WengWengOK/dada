@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>陪伴搭子 · AI 作品演示</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23E8A7C4'/%3E%3Ccircle cx='22' cy='26' r='4' fill='%2323203A'/%3E%3Ccircle cx='42' cy='26' r='4' fill='%2323203A'/%3E%3Cpath d='M20 40 Q32 48 44 40' stroke='%2323203A' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #F6F2FA;
+    --ink: #23203A;
+    --sub: #6E6A8A;
+    --accent: #E8A7C4;
+    --accent-strong: #D56E9C;
+    --card: #FFFFFF;
+    --line: rgba(35, 32, 58, 0.10);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink); font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; }
+  .page { max-width: 640px; margin: 0 auto; padding: 40px 20px 56px; }
+  header { text-align: center; margin-bottom: 28px; }
+  .kicker { display: inline-block; font-size: 12px; letter-spacing: 2px; color: var(--accent-strong); font-weight: 600; margin-bottom: 8px; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: 1px; }
+  .sub { margin-top: 10px; font-size: 14px; color: var(--sub); line-height: 1.7; }
+
+  /* ===== 搭子舞台 ===== */
+  .stage {
+    position: relative;
+    background: linear-gradient(180deg, #FCF8FE 0%, #F1E9F8 100%);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 44px 20px 30px;
+    text-align: center;
+    overflow: hidden;
+  }
+  .face-holder { position: relative; width: 300px; height: 300px; margin: 0 auto; }
+  .face { position: absolute; inset: 0; width: 300px; height: 300px; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+  .hidden { display: none; }
+  .bubble {
+    position: absolute; top: 4px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 16px;
+    font-size: 13px;
+    color: var(--ink);
+    box-shadow: 0 4px 12px rgba(35,32,58,0.08);
+    white-space: nowrap;
+    transition: opacity .18s ease;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .bubble.show { opacity: 1; }
+  .hint-row { margin-top: 22px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .hint {
+    font-size: 12px; color: var(--sub);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 12px;
+  }
+  .hint b { color: var(--accent-strong); font-weight: 700; }
+
+  /* ===== 作品说明 ===== */
+  .cards { margin-top: 28px; display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; }
+  .card h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .card p { font-size: 13.5px; line-height: 1.8; color: var(--sub); }
+  .card p b { color: var(--ink); font-weight: 600; }
+  .feat-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .feat-list li { display: flex; gap: 10px; font-size: 13px; line-height: 1.7; color: var(--sub); align-items: flex-start; }
+  .feat-list li::before { content: ""; flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 6px; }
+  .feat-list li b { color: var(--ink); font-weight: 600; }
+
+  /* ===== 统计卡片(示例数据) ===== */
+  .donut-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .donut { position: relative; width: 120px; height: 120px; flex: 0 0 120px; }
+  .donut svg { width: 120px; height: 120px; transform: rotate(-90deg); }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .donut-center .num { font-size: 20px; font-weight: 800; }
+  .donut-center .lab { font-size: 11px; color: var(--sub); }
+  .legend { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--sub); }
+  .legend-item .dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 10px; }
+  .legend-item .pct { margin-left: auto; font-weight: 700; color: var(--ink); }
+  .note { margin-top: 12px; font-size: 11.5px; color: #A29EBC; }
+
+  footer { margin-top: 32px; text-align: center; font-size: 12px; color: #A29EBC; line-height: 1.8; }
+
+  @media (max-width: 480px) {
+    .page { padding: 24px 14px 40px; }
+    h1 { font-size: 24px; }
+    .face, .face-holder { width: 240px; height: 240px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .face { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="kicker">AI 作品演示 · WEB DEMO</div>
+    <h1>陪伴搭子</h1>
+    <p class="sub">一个会眨眼睛、会吃小鱼饼干、会陪你学习的桌面小搭子。<br>解决的是：上网学习时没人督促、容易走神，需要一个"看得见"的陪伴。</p>
+  </header>
+
+  <section class="stage" aria-label="搭子形象演示">
+    <div class="face-holder">
+      <img id="f-neutral" class="face" src="assets/neutral.png" alt="搭子待机" draggable="false">
+      <img id="f-blink" class="face hidden" src="assets/neutral_blink.png" alt="搭子眨眼" draggable="false">
+      <img id="f-happy" class="face hidden" src="assets/happy.png" alt="搭子开心" draggable="false">
+      <img id="f-excited" class="face hidden" src="assets/excited.png" alt="搭子激动" draggable="false">
+      <img id="f-love" class="face hidden" src="assets/love.png" alt="搭子比心" draggable="false">
+      <img id="f-eat1" class="face hidden" src="assets/eat1.png" alt="吃饼干1" draggable="false">
+      <img id="f-eat2" class="face hidden" src="assets/eat2.png" alt="吃饼干2" draggable="false">
+      <img id="f-eat3" class="face hidden" src="assets/eat3.png" alt="吃饼干3" draggable="false">
+      <img id="f-eat4" class="face hidden" src="assets/eat4.png" alt="吃饼干4" draggable="false">
+      <div id="bubble" class="bubble"></div>
+    </div>
+    <div class="hint-row">
+      <span class="hint"><b>点击</b> 喂它吃小鱼饼干</span>
+      <span class="hint"><b>双击</b> 切换表情</span>
+      <span class="hint">它每隔几秒会<b>眨眼</b></span>
+    </div>
+  </section>
+
+  <!-- ===== 视图: 作品卡片 + 统计(示例数据) ===== -->
+  <div class="cards">
+
+    <div class="card">
+      <h2>这个作品解决什么问题</h2>
+      <p>用 AI 全流程做出了一个<b>桌面陪伴搭子</b>：常驻屏幕角落，监测你正在浏览的网页，判断你在学习/工作时弹气泡鼓励，每 2 分钟一次短鼓励、每 1 小时一次阶段表扬；还能自动记录每个网页的学习时长、生成站点占比环形图和 24 小时活动时间线，并在下雨时冒泡提醒带伞。<b>一句话：把"自律"变成屏幕上看得见、会互动的陪伴。</b></p>
+    </div>
+
+    <div class="card">
+      <h2>搭子会做的事（桌面版）</h2>
+      <ul class="feat-list">
+        <li><b>行为感知鼓励</b>：检测到在学习就气泡鼓励"加油继续学"，1 小时阶段性点赞</li>
+        <li><b>网页学习记录</b>：自动记录每个网站/网页的停留时长，乱码问题已修复</li>
+        <li><b>数据看板</b>：站点占比环形图、近 7 天趋势堆叠图、24 小时学习/休息时间线</li>
+        <li><b>天气提醒</b>：监测到降水自动气泡"外面下雨了，出门带伞"</li>
+        <li><b>形象动效</b>：待机随机眨眼、点它吃小鱼饼干（4 帧咀嚼动画）、双击换表情</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>今日学习统计（示例数据）</h2>
+      <div class="donut-row">
+        <div class="donut">
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#F0ECF7" stroke-width="12"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#E8A7C4" stroke-width="12" stroke-dasharray="130.7 326.7" stroke-dashoffset="0"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#9BBBF4" stroke-width="12" stroke-dasharray="114.4 326.7" stroke-dashoffset="-130.7"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#94D4D0" stroke-width="12" stroke-dasharray="81.7 326.7" stroke-dashoffset="-245.0"/>
+          </svg>
+          <div class="donut-center">
+            <div class="num">2.4h</div>
+            <div class="lab">今日学习</div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="dot" style="background:#E8A7C4"></span>哔哩哔哩<span class="pct">40%</span></div>
+          <div class="legend-item"><span class="dot" style="background:#9BBBF4"></span>知乎<span class="pct">35%</span></div>
+          <div class="legend-item"><span class="dot" style="background:#94D4D0"></span>GitHub<span class="pct">25%</span></div>
+        </div>
+      </div>
+      <div class="note">示例数据，仅展示界面形态；真实版由桌面应用自动统计。</div>
+    </div>
+
+  </div>
+
+  <footer>
+    本页为网页演示版，同一形象与动画逻辑来自桌面端 Electron 应用（真实版还带行为鼓励气泡、天气提醒、网页学习时长统计）。<br>
+    页面中的学习统计为示例数据，仅用于展示界面形态。
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var faceIds = {
+    neutral: 'f-neutral', blink: 'f-blink', happy: 'f-happy',
+    excited: 'f-excited', love: 'f-love',
+    eat1: 'f-eat1', eat2: 'f-eat2', eat3: 'f-eat3', eat4: 'f-eat4'
+  };
+  var emojiSet = ['neutral', 'happy', 'excited', 'love'];
+  var emojiText = {
+    happy: '嘿嘿，今天也要开心呀~',
+    excited: '哇，好棒！',
+    love: '比心！爱你~',
+    neutral: '我在呢，陪你一起学。'
+  };
+  var bubbleEl = document.getElementById('bubble');
+  var current = 'neutral';
+  var eatTimer = null, bubbleTimer = null, clickTimer = null;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function hideAll() {
+    for (var k in faceIds) {
+      var el = document.getElementById(faceIds[k]);
+      if (el) el.classList.add('hidden');
+    }
+  }
+  function showFace(name, text) {
+    hideAll();
+    var el = document.getElementById(faceIds[name]);
+    if (el) el.classList.remove('hidden');
+    current = name;
+    if (text) showBubble(text);
+  }
+  function showBubble(text) {
+    if (bubbleTimer) clearTimeout(bubbleTimer);
+    bubbleEl.textContent = text;
+    bubbleEl.classList.add('show');
+    bubbleTimer = setTimeout(function () { bubbleEl.classList.remove('show'); }, 2000);
+  }
+
+  // 待机眨眼: 仅在 neutral 表情时, 3.8~5 秒随机眨一次(160ms)
+  function startBlink() {
+    var wait = function () {
+      return 3800 + Math.random() * 1200;
+    };
+    var loop = function () {
+      setTimeout(function () {
+        if (current === 'neutral') {
+          showFace('blink');
+          setTimeout(function () {
+            if (current === 'blink') showFace('neutral');
+            loop();
+          }, 160);
+        } else {
+          loop();
+        }
+      }, wait());
+    };
+    loop();
+  }
+
+  // 吃饼干动画: eat1 -> eat4 循环两轮后回到 neutral
+  function startEating() {
+    if (eatTimer) clearTimeout(eatTimer);
+    var frames = ['eat1', 'eat2', 'eat3', 'eat4'];
+    var i = 0, rounds = 0;
+    var step = function () {
+      showFace(frames[i], i === 0 ? '咔嚓咔嚓~' : null);
+      i += 1;
+      if (i >= frames.length) {
+        i = 0; rounds += 1;
+        if (rounds >= 2) {
+          showFace('neutral', '吧唧吧唧，好吃~');
+          return;
+        }
+      }
+      eatTimer = setTimeout(step, reduced ? 0 : 450);
+    };
+    step();
+  }
+
+  // 双击: 切换表情
+  function nextEmotion() {
+    var idx = emojiSet.indexOf(current);
+    if (idx === -1) idx = 0;
+    var next = emojiSet[(idx + 1) % emojiSet.length];
+    showFace(next, emojiText[next]);
+  }
+
+  // 单击 vs 双击
+  document.querySelector('.face-holder').addEventListener('click', function (e) {
+    if (e.target.tagName !== 'IMG') return;
+    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; nextEmotion(); return; }
+    clickTimer = setTimeout(function () {
+      clickTimer = null;
+      if (current !== 'neutral') { showFace('neutral', '我在呢。'); return; }
+      startEating();
+    }, 250);
+  });
+
+  startBlink();
+})();
+</script>
